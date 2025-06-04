@@ -1,0 +1,4 @@
+{
+  "kg_filelist":"mpm/test/new",
+  "embedding_model_name": "./local_openbmb_MiniCPM-Embedding"
+}

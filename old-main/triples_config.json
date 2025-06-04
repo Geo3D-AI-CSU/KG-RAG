@@ -1,0 +1,6 @@
+{
+  "question": "待补充问题",
+  "model": "config/config.json",
+  "RAG": "config/RAG_config.json",
+  "prompt": "config/oie_config.json"
+}

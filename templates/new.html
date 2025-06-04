@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Example</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/default.min.css">
+
+</head>
+
+<body>
+    <div class="title">
+        <span style="font-size: 25px;"> 找矿预测问答推荐系统(基于大模型使用chatGLM-4-9b)</span>
+    </div>
+    <div id="chat-container">
+        <div id="chat-messages">
+        </div>
+    </div>
+    <div class="message-input-wrapper">
+        <div class="checkbox-container">
+        <label>
+            <input type="checkbox" id="use-db-checkbox">
+            地质知识图谱数据库
+        </label>
+        </div>
+        <textarea type="text" id="message-input" placeholder="请输入您的内容" ></textarea>
+        <div id="send-button">发送</div>
+    </div>
+
+
+
+    <script>
+        console.log(window)
+        // 获取需要的DOM元素
+        const chatMessages = document.getElementById("chat-messages");
+        const messageInput = document.getElementById("message-input");
+        const sendButton = document.getElementById("send-button");
+        // const presetbutton=document.getElementById("preset-button")
+        const useDbCheckbox = document.getElementById("use-db-checkbox");
+
+
+
+        // formateMarkdown("# Hello World")
+        // 定义发送消息的函数
+        function sendMessage() {
+            const message = messageInput.value;
+            if (message.trim() === "") {
+                return;
+            }
+
+            // 创建一个新的消息元素，并添加到聊天框
+            let messageElement = `<div class="flex-right">
+                <div class="time-remark-wrapper mr10">
+                    <span class="time">${getNowTime()}</span>
+                    <div class="message user-message" style="display: inline-block;">
+                        ${message}
+                    </div>
+                </div>
+                <img src="{{url_for('static',filename='mtr.gif')}}" class="avatar" style="width: 100px; height: 100px;"/>
+            </div>`
+            chatMessages.innerHTML += messageElement;
+
+            messageInput.value = "";
+
+            if (useDbCheckbox.checked){
+                sendToServer(message); // 调用后台数据库
+            } else {
+                console.log("跳过数据库调用");
+                sendToServer_ndb(message);
+            }
+
+            // // 发送消息到服务器
+            // sendToServer(message);
+        }
+
+        function getNowTime() {
+            var currentTime = new Date();
+            var year = currentTime.getFullYear();
+            var month = currentTime.getMonth() + 1; // 月份从 0 开始，所以要加 1
+            var day = currentTime.getDate();
+            var hours = currentTime.getHours();
+            var minutes = currentTime.getMinutes();
+            var seconds = currentTime.getSeconds();
+
+            // 格式化为两位数
+            if (month < 10) {
+                month = '0' + month;
+            }
+            if (day < 10) {
+                day = '0' + day;
+            }
+            if (hours < 10) {
+                hours = '0' + hours;
+            }
+            if (minutes < 10) {
+                minutes = '0' + minutes;
+            }
+            if (seconds < 10) {
+                seconds = '0' + seconds;
+            }
+
+            var formattedTime = year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+            return formattedTime;
+        }
+
+
+        function formateMarkdown(message) {
+
+            var renderer = new marked.Renderer();
+            renderer.code = function (code, language) {
+                var highlightedCode = hljs.highlightAuto(code).value;
+                return '<pre><code class="hljs ' + language + '">' + highlightedCode + '</code></pre>';
+            };
+
+            marked.setOptions({
+                renderer: renderer,
+                gfm: true,
+                tables: true,
+                breaks: true,
+                pedantic: false,
+                sanitize: false,
+                smartLists: true,
+                smartypants: false,
+            })
+            if (Array.isArray(message.data)) {
+                message.data.forEach(function (markdownText) {
+                    var parsedHTML = marked.parse(markdownText);  // 解析Markdown文本
+                    let messageHTML = ` <div class="flex-left">
+                <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" style="width: 100px; height: 100px;"/>
+                <div class="time-remark-wrapper">
+                    <span class="time">${getNowTime()}</span>
+                    <div class="message bot-message" style="display: inline-block;">
+                        ${parsedHTML}
+                    </div>
+                </div>
+            </div>`;
+                    chatMessages.innerHTML += messageHTML;  // 动态更新聊天框
+                });
+
+
+            }
+            if (Array.isArray(message.triples)){
+                let triplesHTML='<div class="triples-info"><h4>引用三元组相关信息：</h4><ul>';
+                message.triples.forEach(function(triplesItem){
+                    triplesHTML += `<li>${triplesItem}</li>`;
+                });
+                triplesHTML += '</ul></div>';
+
+                // 将Meta信息插入聊天框
+            let triplesMessageHTML = `<div class="flex-left">
+            <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" style="width: 100px; height: 100px;"/>
+            <div class="time-remark-wrapper">
+                <span class="time">${getNowTime()}</span>
+                <div class="message bot-message" style="display: inline-block;">
+                    ${triplesHTML}
+                </div>
+            </div>
+            </div>`;
+            chatMessages.innerHTML += triplesMessageHTML;
+
+            }
+            // 添加Meta信息
+            if (Array.isArray(message.meta)) {
+                let metaHTML = '<div class="meta-info"><h4>元数据相关信息：</h4><ul>';
+                message.meta.forEach(function(metaItem) {
+                metaHTML += `<li>${metaItem}</li>`;  // 将每个meta项添加到列表中
+                });
+                metaHTML += '</ul></div>';
+
+            // 将Meta信息插入聊天框
+            let metaMessageHTML = `<div class="flex-left">
+            <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" style="width: 100px; height: 100px;"/>
+            <div class="time-remark-wrapper">
+                <span class="time">${getNowTime()}</span>
+                <div class="message bot-message" style="display: inline-block;">
+                    ${metaHTML}
+                </div>
+            </div>
+        </div>`;
+        chatMessages.innerHTML += metaMessageHTML;  // 动态插入Meta信息
+        }
+        }
+
+        function formateMarkdown_ndb(message){
+            var renderer = new marked.Renderer();
+            renderer.code = function (code,language){
+                var highlightedCode = hljs.highlightAuto(code).value;
+                return '<pre><code class="hljs' + language + '">' + highlightedCode +'</code></pre>';
+            };
+
+            marked.setOption({
+                renderer: renderer,
+                gfm: true,
+                tables: true,
+                breaks: true,
+                pedantic: false,
+                sanitize: false,
+                smartLists: true,
+                smartypants: false,
+            })
+
+            if (Array.isArray(message.data)) {
+                message.data.forEach(function (markdownText) {
+                    var parsedHTML = marked.parse(markdownText);  // 解析Markdown文本
+                    let messageHTML = ` <div class="flex-left">
+                <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" style="width: 100px; height: 100px;"/>
+                <div class="time-remark-wrapper">
+                    <span class="time">${getNowTime()}</span>
+                    <div class="message bot-message" style="display: inline-block;">
+                        ${parsedHTML}
+                    </div>
+                </div>
+            </div>`;
+                    chatMessages.innerHTML += messageHTML;  // 动态更新聊天框
+                });
+
+            }
+
+        }
+
+        // 定义发送消息到服务器的函数
+        function sendToServer(message) {
+
+            sendAjaxRequest("/predict", { message }, formateMarkdown);
+        }
+
+        function sendToServer_ndb(message){
+            sendAjaxRequest("/ndb_predict", { message }, formateMarkdown);
+        }
+
+        // function mpmTogenerate()
+        // {
+        //     console.log("显示既定信息按钮被点击");
+        //
+        //     const info=  "构造背景-本区的主要构造特征是什么？有哪些断裂、褶皱或构造带与成矿可能相关？请分析地质数据中，哪些构造单元对矿化有控制作用？"
+        //     // 创建一个新的消息元素，并添加到聊天框
+        //     let messageElement = `<div class="flex-right">
+        //         <div class="time-remark-wrapper mr10">
+        //             <span class="time">${getNowTime()}</span>
+        //             <div class="message user-message" style="display: inline-block;">
+        //                 ${info}
+        //             </div>
+        //         </div>
+        //         <img src="{{url_for('static',filename='mtr.gif')}}" class="avatar" style="width: 100px; height: 100px;"/>
+        //     </div>`
+        //     chatMessages.innerHTML += messageElement;
+        //
+        //     sendAjaxRequest("/mpm",{info},formateMarkdown)
+        //
+        // }
+        function sendAjaxRequest(url,data,callback){
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", url, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        callback(response);
+                    } catch (error) {
+                        console.error("Error parsing JSON response:", error);
+                    }
+                }
+        };
+        xhr.send(JSON.stringify(data));
+        }
+
+        // 绑定发送按钮的点击事件
+        sendButton.addEventListener("click", sendMessage);
+        // presetbutton.addEventListener("click",mpmTogenerate)
+    </script>
+
+    <style>
+
+        body {
+            font-size: 16px;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 40%;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .time-remark-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mr10 {
+            margin-right: 10px;
+        }
+
+        .time {
+            color: rgba(180, 187, 196);
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .title {
+            display: flex;
+            justify-content: center;
+            text-align: center;
+            font-size: 16px;
+            padding: 15px;
+
+        }
+
+        #chat-messages {
+            padding: 30px;
+        }
+
+        #chat-container {
+            width: 1000px;
+            margin: 0 auto;
+            border-width: 1px;
+            border-style: solid;
+            border-color: #e5e7eb;
+            border-radius: 8px;
+            height: calc(100% - 150px);
+            box-sizing: content-box;
+            position: relative;
+            overflow: auto;
+        }
+
+        .message-input-wrapper {
+            position: fixed;
+            bottom: 20px;
+            display: flex;
+            align-items: center;
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 1000px;
+            /* background-color: #fff; */
+        }
+
+        .flex-right .time-remark-wrapper {
+            align-items: flex-end;
+        }
+
+        .message {
+            padding: 8px;
+            border-radius: 8px;
+
+        }
+
+        textarea:focus {
+            outline: none;
+        }
+
+        #message-input {
+            border: 1px solid #e5e7eb;
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+            padding: 10px;
+            flex: 1;
+
+        }
+
+        #message-input>textarea {
+            flex: 1;
+        }
+
+        .user-message {
+            background-color: rgb(210, 249, 209);
+            text-align: right;
+            margin-bottom: 20px;
+            padding: 10px 15px;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+
+        .flex-right {
+            display: flex;
+            justify-content: end;
+        }
+
+        .flex-left {
+            display: flex;
+            justify-content: start;
+        }
+
+        #send-button {
+            background: #0c7a43;
+            color: #fff;
+            padding: 16px 15px;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+            cursor: pointer;
+
+        }
+
+        /* 输入框和按钮的容器 */
+        .message-input-wrapper {
+            position: fixed;
+            bottom: 20px;
+            display: flex;
+            align-items: center;
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 1000px;
+
+            gap: 20px;
+            padding: 10px 0;
+        }
+
+        /* 复选框容器 */
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* 控制复选框与文字之间的间距 */
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* 样式简洁的复选框 */
+        #use-db-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        /* 勾选框被选中时的背景色 */
+        #use-db-checkbox:checked {
+            background-color: #4CAF50; /* 选中时绿色背景 */
+        }
+
+        /* 文字样式 */
+        .checkbox-container label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            color: #333;
+        }
+
+
+
+        .hljs {
+            background: #fff;
+            border-radius: 8px;
+        }
+    </style>
+</body>
+
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Example</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/default.min.css">
+</head>
+
+<body>
+  <div class="title">
+    <span style="font-size: 25px;">找矿预测问答推荐系统(基于大模型chatGLM-4-9b)</span>
+  </div>
+
+  <div id="chat-container">
+    <div id="chat-messages"></div>
+  </div>
+
+  <div class="message-input-wrapper">
+    <div class="checkbox-container">
+      <label>
+        <input type="checkbox" id="use-db-checkbox"> 地质知识图谱数据库
+      </label>
+    </div>
+    <textarea id="message-input" placeholder="请输入您的内容"></textarea>
+    <div id="send-button">发送</div>
+  </div>
+
+  <script>
+    const chatMessages = document.getElementById("chat-messages");
+    const messageInput = document.getElementById("message-input");
+    const sendButton = document.getElementById("send-button");
+    const useDbCheckbox = document.getElementById("use-db-checkbox");
+
+    function getNowTime() {
+      const now = new Date();
+      return now.toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function sendMessage() {
+      const message = messageInput.value.trim();
+      if (!message) return;
+
+      chatMessages.innerHTML += `
+        <div class="flex-right">
+          <div class="time-remark-wrapper mr10">
+            <span class="time">${getNowTime()}</span>
+            <div class="message user-message">${message}</div>
+          </div>
+          <img src="{{url_for('static',filename='mtr.gif')}}" class="avatar" />
+        </div>
+      `;
+      messageInput.value = "";
+
+      if (useDbCheckbox.checked) {
+        sendToServer(message);
+      } else {
+        sendToServer_ndb(message);
+      }
+    }
+
+    function sendToServer(message) {
+      sendAjaxRequest("/predict", { message }, formateMarkdown);
+    }
+
+    function sendToServer_ndb(message) {
+      sendAjaxRequest("/ndb_predict", { message }, formateMarkdown);
+    }
+
+    function sendAjaxRequest(url, data, callback) {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      .then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        const messageContainer = document.createElement("div");
+        messageContainer.className = "flex-left";
+        messageContainer.innerHTML = `
+          <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" />
+          <div class="time-remark-wrapper">
+            <span class="time">${getNowTime()}</span>
+            <div class="message bot-message" id="stream-response"></div>
+          </div>
+        `;
+        chatMessages.appendChild(messageContainer);
+        const target = messageContainer.querySelector("#stream-response");
+
+        function readChunk() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            buffer += decoder.decode(value, { stream: true });
+
+            const parts = buffer.split("\n\n");
+            buffer = parts.pop();
+
+            for (let chunk of parts) {
+              try {
+                const parsed = JSON.parse(chunk);
+                if (parsed.data) {
+                  parsed.data.forEach(text => {
+                    const html = marked.parse(text);
+                    target.innerHTML += html;
+                  });
+                }
+                if (parsed.triples || parsed.meta) {
+                  callback(parsed);
+                }
+              } catch {
+                const html = marked.parse(chunk);
+                target.innerHTML += html;
+              }
+            }
+            readChunk();
+          });
+        }
+
+        readChunk();
+      });
+    }
+
+    function formateMarkdown(message) {
+      if (!Array.isArray(message.data)) return;
+      message.data.forEach(text => {
+        const parsedHTML = marked.parse(text);
+        chatMessages.innerHTML += `
+          <div class="flex-left">
+            <img src="{{url_for('static',filename='mtr_alter.gif')}}" class="avatar mr10" />
+            <div class="time-remark-wrapper">
+              <span class="time">${getNowTime()}</span>
+              <div class="message bot-message">${parsedHTML}</div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    sendButton.addEventListener("click", sendMessage);
+  </script>
+
+  <style>
+    body {
+      font-size: 16px;
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .title {
+      text-align: center;
+      padding: 15px;
+    }
+
+    #chat-container {
+      width: 1000px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      height: calc(100vh - 150px);
+      overflow: auto;
+    }
+
+    #chat-messages {
+      padding: 30px;
+    }
+
+    .message-input-wrapper {
+      position: fixed;
+      bottom: 20px;
+      display: flex;
+      align-items: center;
+      width: 1000px;
+      gap: 20px;
+    }
+
+    #message-input {
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+      flex: 1;
+      padding: 10px;
+    }
+
+    #send-button {
+      background: #0c7a43;
+      color: white;
+      padding: 16px;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+    }
+
+    .checkbox-container {
+      font-size: 16px;
+    }
+
+    .avatar {
+      width: 100px;
+      height: 100px;
+    }
+
+    .message {
+      padding: 8px;
+      border-radius: 8px;
+      max-width: 70%;
+    }
+
+    .user-message {
+      background-color: #c0f7b4;
+    }
+
+    .bot-message {
+      background-color: #f2f5f7;
+    }
+
+    .time-remark-wrapper {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .time {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 5px;
+    }
+
+    .flex-right {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 20px;
+    }
+
+    .flex-left {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .mr10 {
+      margin-right: 10px;
+    }
+
+    .hljs {
+      background: #fff;
+    }
+  </style>
+</body>
+</html>

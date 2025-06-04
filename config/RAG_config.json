@@ -1,0 +1,8 @@
+{
+  "RAG_csvfile": "['dataset/MW-ZY_segmented_stopwords.csv','dataset/MW-C1_segmented_stopwords.csv','dataset/MW-C2_segmented_stopwords.csv','dataset/MW-C3_segmented_stopwords.csv','dataset/MW-C4_segmented_stopwords.csv']",
+  "chunksize": "200",
+  "chunk_overlap": "100",
+  "embedding_model": "./local_openbmb_MiniCPM-Embedding",
+  "RAG_db":"/dataset/new",
+  "RAG_k": "15"
+}

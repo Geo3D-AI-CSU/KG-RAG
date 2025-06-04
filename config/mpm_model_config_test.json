@@ -1,0 +1,9 @@
+{
+  "max_model_len": 8192,
+  "tp_size": 1,
+  "model_name": "./local_glm4_9b_chat",
+  "stop_token_ids": [151329,151336,151338],
+  "temperature":0.2,
+  "max_tokens":1024,
+  "query":["待提供"]
+}

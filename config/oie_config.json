@@ -1,0 +1,5 @@
+{
+  "oie_prompt": "txt_prompt/oie_prompt",
+  "oie_examples":"txt_prompt/oie_examples",
+  "oie_init": "txt_prompt/oie_init"
+}
