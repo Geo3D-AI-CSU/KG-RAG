@@ -1,0 +1,11 @@
+{
+    "model_name":"THUDM/glm-4-9b-chat",
+    "tp_size":1,
+    "max_model_len":8192,
+    "trust_remote_code":true,
+    "enforce_eager": true,
+    "temperature":0.95,
+    "max_tokens":1024,
+    "stop_token_ids": [151329,151336,151338]
+}
+

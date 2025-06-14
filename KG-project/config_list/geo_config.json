@@ -1,0 +1,6 @@
+{
+  "geo_prompt": "prompt_geo/geo_prompt",
+  "geo_example": "prompt_geo/geo_examples",
+  "geo_init": "prompt_geo/geo_init",
+  "geo_rel": "prompt_geo/geo_rel"
+}

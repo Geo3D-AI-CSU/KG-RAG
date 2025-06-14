@@ -1,0 +1,5 @@
+{
+  "entities_prompt": "prompt_entities/e_prompt",
+  "entities_examples": "prompt_entities/e_examples",
+  "entities_init": "prompt_entities/e_init"
+}
