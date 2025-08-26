@@ -30,6 +30,9 @@ Key words：Geological Prospecting；Knowledge Graph (KG); Large Language Models
 	
 	该脚本是基于图的RAG检索方案
 
+## mpm
+
+	该代码是对比实验和计算指标部分
 
 ## requirements
 	
